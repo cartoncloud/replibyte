@@ -1,4 +1,4 @@
-use std::fs::{read, read_dir, remove_dir_all, write, DirBuilder, OpenOptions};
+use std::fs::{read, read_dir, remove_dir_all, write, DirBuilder, OpenOptions, DirEntry};
 use std::io::{BufReader, Error, Read, Write};
 use std::path::Path;
 
@@ -180,11 +180,17 @@ impl Datastore for LocalDisk {
     ) -> Result<(), Error> {
         let mut index_file = self.index_file()?;
         let dump = index_file.find_dump(options)?;
-        let entries = read_dir(format!("{}/{}", self.dir, dump.directory_name))?;
+
+        let dump_directory_name = format!("{}/{}", self.dir, dump.directory_name);
+        let mut entries: Vec<DirEntry> = read_dir(&dump_directory_name)?
+            .map(|r| r.unwrap())
+            .collect();
+
+        entries.sort_by_key(|dir| dir.path());
 
         for entry in entries {
-            let entry = entry?;
-            let data = read(entry.path())?;
+            let entry_path = entry.path();
+            let data = read(&entry_path)?;
 
             // decrypt data?
             let data = if dump.encrypted {
